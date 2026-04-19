@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "morning-brief"
+version = "0.2.0"
+description = "Rule-based daily Gmail inbox triage. Zero LLM, read-only, Windows-friendly."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Pawansingh3889", email = "pawankapkoti3889@gmail.com" }]
+keywords = ["gmail", "triage", "digest", "inbox", "cli", "productivity"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Email",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "google-api-python-client>=2.100",
+    "google-auth-oauthlib>=1.2",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+windows = ["winotify>=1.1; sys_platform == 'win32'"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0"]
+
+[project.scripts]
+morning-brief = "morning_brief.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/Pawansingh3889/morning-brief"
+Repository = "https://github.com/Pawansingh3889/morning-brief"
+Issues = "https://github.com/Pawansingh3889/morning-brief/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["morning_brief"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
