@@ -1,0 +1,12 @@
+checks:
+  changelog_required:
+    severity: error
+    paths:
+      - "morning_brief/**/*.py"
+      - "pyproject.toml"
+
+  version_consistency:
+    severity: error
+    files:
+      - pyproject.toml
+      - morning_brief/__init__.py
