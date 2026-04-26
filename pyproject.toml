@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "morning-brief"
-version = "0.2.0"
+version = "0.3.0"
 description = "Rule-based daily Gmail inbox triage. Zero LLM, read-only, Windows-friendly."
 readme = "README.md"
 requires-python = ">=3.10"
