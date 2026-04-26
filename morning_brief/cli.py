@@ -12,7 +12,7 @@ from morning_brief import labels as labels_mod
 from morning_brief import state as state_mod
 from morning_brief import suggest as suggest_mod
 from morning_brief.auth import gmail_service
-from morning_brief.classify import Rules, classify
+from morning_brief.classify import Rules, classify, classify_with_reason
 from morning_brief.digest import render
 from morning_brief.notify import send as notify_send
 
@@ -94,12 +94,32 @@ def init(
     )
 
 
+def _build_query(hours: int | None, days: int, unread_only: bool) -> str:
+    """Compose the Gmail search query. ``hours`` wins over ``days`` when set."""
+    window = f"newer_than:{hours}h" if hours is not None else f"newer_than:{days}d"
+    parts = [window]
+    if unread_only:
+        parts.append("is:unread")
+    return " ".join(parts)
+
+
 @app.command()
 def run(
     home: Path = typer.Option(None, help="Override data directory."),
     rules_path: Path = typer.Option(None, help="Path to rules.yaml."),
     days: int = typer.Option(1, help="Gmail newer_than window, in days."),
+    hours: int = typer.Option(
+        None,
+        "--hours",
+        "-H",
+        help="Gmail newer_than window in hours. Overrides --days.",
+    ),
     unread_only: bool = typer.Option(True, help="Limit to is:unread."),
+    collapse_threads: bool = typer.Option(
+        True,
+        "--collapse-threads/--no-collapse-threads",
+        help="Group messages sharing a Gmail thread into a single digest entry.",
+    ),
     notify: bool = typer.Option(True, help="Show a desktop notification when done."),
 ) -> None:
     """Fetch recent mail, classify by rules, write today's digest."""
@@ -129,13 +149,11 @@ def run(
         raise typer.Exit(1)
     service = gmail_service(creds_file, token_file)
 
-    q_parts = [f"newer_than:{days}d"]
-    if unread_only:
-        q_parts.append("is:unread")
+    query = _build_query(hours, days, unread_only)
     result = (
         service.users()
         .messages()
-        .list(userId="me", q=" ".join(q_parts), maxResults=200)
+        .list(userId="me", q=query, maxResults=200)
         .execute()
     )
     messages = result.get("messages", [])
@@ -164,6 +182,7 @@ def run(
             "from": sender,
             "subject": subject,
             "bucket": bucket,
+            "thread_id": meta.get("threadId"),
         }
         new += 1
 
@@ -172,7 +191,9 @@ def run(
     todays = {k: v for k, v in state["processed"].items() if v["date"] == today}
     labels_today = _load_labels(home)
     digest_path = home / "digests" / f"{today}.md"
-    digest_path.write_text(render(todays, today, labels_today))
+    digest_path.write_text(
+        render(todays, today, labels_today, collapse_threads=collapse_threads)
+    )
 
     summary = f"{len(todays)} in digest, {new} new"
     typer.echo(f"Wrote {digest_path}: {summary}")
@@ -251,6 +272,53 @@ def _refresh_digest(home: Path, date: str) -> None:
     labels = _load_labels(home)
     (home / "digests").mkdir(exist_ok=True)
     (home / "digests" / f"{date}.md").write_text(render(todays, date, labels))
+
+
+@app.command()
+def preview(
+    sender: str = typer.Option(..., "--sender", "-s", help="Sample 'Name <addr>' or bare email."),
+    subject: str = typer.Option(..., "--subject", "-S", help="Sample subject line."),
+    home: Path = typer.Option(None, help="Override data directory."),
+    rules_path: Path = typer.Option(None, help="Path to rules.yaml."),
+) -> None:
+    """Test which bucket a hypothetical message would land in. No Gmail call."""
+    home = home or _default_home()
+    rules_file = rules_path or (home / "rules.yaml")
+    if not rules_file.exists():
+        typer.echo(f"rules.yaml not found at {rules_file}.", err=True)
+        raise typer.Exit(1)
+    rules = Rules.from_dict(yaml.safe_load(rules_file.read_text()) or {})
+    bucket, reason = classify_with_reason(sender, subject, rules)
+    typer.echo(f"Bucket: {bucket}")
+    typer.echo(f"Reason: {reason}")
+
+
+@app.command()
+def why(
+    msg_id: str = typer.Argument(..., help="Message ID stored in state.json."),
+    home: Path = typer.Option(None, help="Override data directory."),
+    rules_path: Path = typer.Option(None, help="Path to rules.yaml."),
+) -> None:
+    """Explain which rule classified a stored message. Useful after editing rules.yaml."""
+    home = home or _default_home()
+    state = state_mod.load(home / "state.json")
+    item = state.get("processed", {}).get(msg_id)
+    if not item:
+        typer.echo(f"No record of '{msg_id}' in state.json.", err=True)
+        raise typer.Exit(1)
+    rules_file = rules_path or (home / "rules.yaml")
+    if not rules_file.exists():
+        typer.echo(f"rules.yaml not found at {rules_file}.", err=True)
+        raise typer.Exit(1)
+    rules = Rules.from_dict(yaml.safe_load(rules_file.read_text()) or {})
+    bucket, reason = classify_with_reason(item["from"], item["subject"], rules)
+    typer.echo(f"From:    {item['from']}")
+    typer.echo(f"Subject: {item['subject']}")
+    typer.echo(f"Stored:  {item['bucket']}")
+    typer.echo(f"Now:     {bucket}")
+    typer.echo(f"Reason:  {reason}")
+    if bucket != item["bucket"]:
+        typer.echo("(rules.yaml has changed since this message was classified)")
 
 
 @app.command()
