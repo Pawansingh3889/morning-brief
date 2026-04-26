@@ -1,8 +1,13 @@
 # morning-brief
 
+[![PyPI](https://img.shields.io/pypi/v/morning-brief)](https://pypi.org/project/morning-brief/)
+[![Python](https://img.shields.io/pypi/pyversions/morning-brief)](https://pypi.org/project/morning-brief/)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![codecov](https://codecov.io/gh/Pawansingh3889/morning-brief/branch/main/graph/badge.svg)](https://codecov.io/gh/Pawansingh3889/morning-brief)
+
 Rule-based daily Gmail inbox triage. Zero LLM, read-only, Windows-friendly.
 
-Classifies the last day of mail into HIGH / MEDIUM / LOW / SPAM from a YAML rules file, writes a markdown digest, and pops a desktop toast. Scan your inbox in thirty seconds instead of thirty minutes.
+Classifies recent mail into HIGH / MEDIUM / LOW / SPAM from a YAML rules file, writes a markdown digest, and pops a desktop toast. Scan your inbox in thirty seconds instead of thirty minutes.
 
 ## Why not an LLM-based tool
 
@@ -27,6 +32,36 @@ pip install "morning-brief[windows]"
 3. Drop `credentials.json` into `~/.morning-brief/`.
 4. Edit `~/.morning-brief/rules.yaml` to match your senders.
 5. Run `morning-brief run`. First run opens your browser for read-only consent and writes `token.json` locally.
+
+## Sub-day windows
+
+```
+morning-brief run --hours 4    # last four hours instead of last day
+morning-brief run --hours 1    # quick post-lunch sweep
+```
+
+`--hours` overrides the default `--days 1`. Maps directly to Gmail's `newer_than:Nh` query.
+
+## Thread collapse
+
+Conversations that fan out across many messages collapse to one digest entry annotated with `(N msgs)`. On by default; pass `--no-collapse-threads` to keep the v0.2.0 one-line-per-message behaviour.
+
+## Debug your rules
+
+```
+morning-brief preview --sender "hr@canonical.com" --subject "Interview Tuesday"
+# Bucket: HIGH
+# Reason: high_sender:@canonical.com
+
+morning-brief why <message-id>
+# From:    notifications@github.com
+# Subject: Review requested on PR #42
+# Stored:  HIGH
+# Now:     HIGH
+# Reason:  high_keyword:review requested
+```
+
+`preview` answers "what would happen if I added this rule?" without calling Gmail. `why` looks up a stored message and shows whether your current `rules.yaml` would still classify it the same way.
 
 ## Daily run
 
