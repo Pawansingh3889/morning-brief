@@ -36,17 +36,38 @@ def _any_contains(patterns: Iterable[str], text: str) -> bool:
     return any(p.lower() in text_lc for p in patterns)
 
 
-def classify(sender: str, subject: str, rules: Rules) -> str:
-    if _any_contains(rules.spam_senders, sender):
-        return "SPAM"
-    if _any_contains(rules.spam_keywords, subject):
-        return "SPAM"
-    if _any_contains(rules.high_priority_senders, sender):
-        return "HIGH"
-    if _any_contains(rules.high_keywords, subject):
-        return "HIGH"
+def _first_match(patterns: Iterable[str], text: str) -> str | None:
+    text_lc = text.lower()
+    for p in patterns:
+        if p.lower() in text_lc:
+            return p
+    return None
+
+
+def classify_with_reason(
+    sender: str, subject: str, rules: Rules
+) -> tuple[str, str]:
+    """Return (bucket, reason). Reason is a short ``rule_kind:matched_value``."""
+    hit = _first_match(rules.spam_senders, sender)
+    if hit:
+        return "SPAM", f"spam_sender:{hit}"
+    hit = _first_match(rules.spam_keywords, subject)
+    if hit:
+        return "SPAM", f"spam_keyword:{hit}"
+    hit = _first_match(rules.high_priority_senders, sender)
+    if hit:
+        return "HIGH", f"high_sender:{hit}"
+    hit = _first_match(rules.high_keywords, subject)
+    if hit:
+        return "HIGH", f"high_keyword:{hit}"
     if rules.github_sender and rules.github_sender in sender.lower():
-        if _any_contains(rules.github_low_keywords, subject):
-            return "LOW"
-        return "MEDIUM"
-    return "MEDIUM"
+        hit = _first_match(rules.github_low_keywords, subject)
+        if hit:
+            return "LOW", f"github_low_keyword:{hit}"
+        return "MEDIUM", f"github_sender:{rules.github_sender}"
+    return "MEDIUM", "default"
+
+
+def classify(sender: str, subject: str, rules: Rules) -> str:
+    bucket, _ = classify_with_reason(sender, subject, rules)
+    return bucket
