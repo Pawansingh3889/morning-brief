@@ -2,6 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/morning-brief)](https://pypi.org/project/morning-brief/)
 [![Python](https://img.shields.io/pypi/pyversions/morning-brief)](https://pypi.org/project/morning-brief/)
+[![CI](https://github.com/Pawansingh3889/morning-brief/actions/workflows/ci.yml/badge.svg)](https://github.com/Pawansingh3889/morning-brief/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![codecov](https://codecov.io/gh/Pawansingh3889/morning-brief/branch/main/graph/badge.svg)](https://codecov.io/gh/Pawansingh3889/morning-brief)
 
